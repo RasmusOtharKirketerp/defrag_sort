@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defrag Playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #050914;
+      --panel: #0c1224;
+      --panel-2: #0c1a2f;
+      --accent: #4ade80;
+      --accent-2: #60a5fa;
+      --muted: #8ba0c2;
+      --grid: rgba(255,255,255,0.04);
+      --shadow: 0 18px 40px rgba(0,0,0,0.45);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(76,29,149,0.12), transparent 35%),
+                  radial-gradient(circle at 80% 10%, rgba(22,163,74,0.12), transparent 35%),
+                  linear-gradient(135deg, #050914, #0a0f1f 48%, #050914);
+      color: #e8eefc;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .shell {
+      width: min(1100px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0.03));
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .shell::before, .shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 65% 120%, rgba(96,165,250,0.18), transparent 38%),
+                  radial-gradient(circle at 0% 10%, rgba(52,211,153,0.12), transparent 30%);
+      pointer-events: none;
+      mix-blend-mode: screen;
+    }
+    .shell::after {
+      filter: blur(40px);
+      opacity: 0.5;
+    }
+    header {
+      padding: 22px 26px 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 1;
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      letter-spacing: -0.01em;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    h1 span {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #22c55e, #0ea5e9);
+      color: #051625;
+      font-weight: 700;
+      box-shadow: 0 10px 26px rgba(34,197,94,0.35);
+    }
+    .subtitle {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 14px;
+      line-height: 1.5;
+      padding: 0 26px 4px;
+    }
+    .workspace {
+      padding: 16px 20px 24px;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+      position: relative;
+      z-index: 1;
+    }
+    @media (max-width: 960px) {
+      .workspace { grid-template-columns: 1fr; }
+    }
+    .panel {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+      position: relative;
+      overflow: hidden;
+    }
+    .panel .title {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    canvas {
+      width: 100%;
+      height: 420px;
+      display: block;
+      border-radius: 12px;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.04), transparent 40%),
+                  linear-gradient(135deg, #0b1226, #090f1f 60%, #0a1428);
+      border: 1px solid rgba(255,255,255,0.04);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+    }
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    button {
+      border: 1px solid rgba(255,255,255,0.06);
+      background: linear-gradient(135deg, rgba(96,165,250,0.35), rgba(74,222,128,0.3));
+      color: #031019;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+      box-shadow: 0 10px 22px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.05) inset;
+    }
+    button:hover { transform: translateY(-1px); filter: brightness(1.08); }
+    button:active { transform: translateY(0); }
+    button.secondary {
+      background: linear-gradient(135deg, rgba(148,163,184,0.25), rgba(148,163,184,0.1));
+      color: #e2e8f0;
+    }
+    .slider-wrap {
+      grid-column: span 2;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: grid;
+      grid-template-columns: 1fr 140px;
+      gap: 10px;
+      align-items: center;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    @media (max-width: 640px) { .slider-wrap { grid-template-columns: 1fr; } }
+    input[type=range] {
+      width: 100%;
+      accent-color: #4ade80;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .stat {
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .value { font-size: 20px; font-weight: 700; }
+    .log {
+      margin-top: 12px;
+      font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(0,0,0,0.28);
+      border-radius: 12px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+      color: #cbd5f5;
+      font-size: 13px;
+      min-height: 54px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: rgba(74,222,128,0.12);
+      color: #befae0;
+      border-radius: 999px;
+      font-size: 12px;
+      border: 1px solid rgba(74,222,128,0.25);
+    }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div>
+        <h1><span>IO</span>Disk Defrag Playground</h1>
+        <div class="subtitle">Watch a scrambled disk reassemble into clean, contiguous files. Slow the tempo to see every hop.</div>
+      </div>
+      <div class="badge">visual · audio · large disk</div>
+    </header>
+    <div class="workspace">
+      <section class="panel">
+        <div class="title">
+          <div>Disk surface</div>
+          <div id="statusChip" class="badge" style="background: rgba(96,165,250,0.14); color: #cbdafe; border-color: rgba(96,165,250,0.3);">idle</div>
+        </div>
+        <canvas id="diskCanvas"></canvas>
+      </section>
+      <section class="panel">
+        <div class="title">
+          <div>Controls</div>
+          <div style="color: var(--muted); font-size: 12px;">Click start to begin defrag</div>
+        </div>
+        <div class="controls">
+          <button id="startBtn">Start defrag</button>
+          <button id="pauseBtn" class="secondary">Pause</button>
+          <button id="scrambleBtn" class="secondary">Scramble disk</button>
+          <button id="soundBtn" class="secondary">Ambient: off</button>
+          <div class="slider-wrap">
+            <div>
+              Tempo / frame rate — slide right to speed up, left to savor each move.
+            </div>
+            <div>
+              <input type="range" min="6" max="100" value="58" id="speedSlider">
+            </div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat">
+            <div class="label">Files</div>
+            <div class="value" id="filesStat">—</div>
+          </div>
+          <div class="stat">
+            <div class="label">Sectors</div>
+            <div class="value" id="sectorsStat">—</div>
+          </div>
+          <div class="stat">
+            <div class="label">Fragments</div>
+            <div class="value" id="fragmentStat">—</div>
+          </div>
+          <div class="stat">
+            <div class="label">Progress</div>
+            <div class="value" id="progressStat">0%</div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="log" id="logBox">ready.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('diskCanvas');
+    const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const scrambleBtn = document.getElementById('scrambleBtn');
+    const soundBtn = document.getElementById('soundBtn');
+    const statusChip = document.getElementById('statusChip');
+    const logBox = document.getElementById('logBox');
+    const speedSlider = document.getElementById('speedSlider');
+    const filesStat = document.getElementById('filesStat');
+    const sectorsStat = document.getElementById('sectorsStat');
+    const fragmentStat = document.getElementById('fragmentStat');
+    const progressStat = document.getElementById('progressStat');
+
+    const CONFIG = {
+      sectors: 2400,
+      columns: 80,
+      fillRatio: 0.75,
+      minFile: 24,
+      maxFile: 140,
+      palette: [180, 210, 265, 320, 35, 140, 195, 12, 330, 260, 48],
+    };
+
+    let files = [];
+    let disk = [];
+    let operations = [];
+    let compactPhaseStart = 0;
+    let opIndex = 0;
+    let running = false;
+    let timer = null;
+    let head = { from: -1, to: -1 };
+    let fragmentsByFile = new Map();
+    let announcedPack = false;
+
+    const audio = {
+      context: null,
+      gain: null,
+      source: null,
+      enabled: false,
+    };
+
+    function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+    function hsl(h, s = 62, l = 62) { return `hsl(${h},${s}%,${l}%)`; }
+
+    function setStatus(text, tone = 'info') {
+      statusChip.textContent = text;
+      const palette = {
+        info: ['rgba(96,165,250,0.14)', '#cbdafe', 'rgba(96,165,250,0.35)'],
+        ok: ['rgba(74,222,128,0.14)', '#d1fae5', 'rgba(74,222,128,0.35)'],
+        warn: ['rgba(251,191,36,0.16)', '#fee9ae', 'rgba(251,191,36,0.35)'],
+      };
+      const [bg, fg, border] = palette[tone] || palette.info;
+      statusChip.style.background = bg;
+      statusChip.style.color = fg;
+      statusChip.style.borderColor = border;
+      logBox.textContent = text;
+    }
+
+    function createFiles() {
+      const target = Math.floor(CONFIG.sectors * CONFIG.fillRatio);
+      let remaining = target;
+      let id = 1;
+      const bag = [];
+      while (remaining > 0) {
+        const size = Math.min(randInt(CONFIG.minFile, CONFIG.maxFile), remaining);
+        remaining -= size;
+        const hue = CONFIG.palette[id % CONFIG.palette.length] + randInt(-8, 8);
+        bag.push({ id: 'F' + id, size, color: hsl((hue + 360) % 360, 65, 62) });
+        id += 1;
+        if (bag.length > 60) break;
+      }
+      return bag;
+    }
+
+    function findRun(freeMap, length) {
+      for (let attempt = 0; attempt < 25; attempt++) {
+        const start = randInt(0, CONFIG.sectors - length);
+        let ok = true;
+        for (let i = 0; i < length; i++) {
+          if (freeMap[start + i]) { ok = false; break; }
+        }
+        if (ok) return start;
+      }
+      return -1;
+    }
+
+    function scatterDisk() {
+      disk = new Array(CONFIG.sectors).fill(null);
+      fragmentsByFile.clear();
+      files = createFiles();
+      const occupied = new Array(CONFIG.sectors).fill(false);
+
+      files.forEach(file => {
+        const fragSlots = [];
+        let placed = 0;
+        while (placed < file.size) {
+          const remaining = file.size - placed;
+          const chunk = Math.min(remaining, randInt(1, Math.min(12, remaining)));
+          const start = findRun(occupied, chunk);
+          if (start !== -1) {
+            for (let i = 0; i < chunk; i++) {
+              disk[start + i] = file.id;
+              occupied[start + i] = true;
+              fragSlots.push(start + i);
+              placed++;
+            }
+          } else {
+            // fallback: scatter single sector
+            let tries = 0;
+            while (tries < 300 && placed < file.size) {
+              const pos = randInt(0, CONFIG.sectors - 1);
+              if (!occupied[pos]) {
+                disk[pos] = file.id;
+                occupied[pos] = true;
+                fragSlots.push(pos);
+                placed++;
+                break;
+              }
+              tries++;
+            }
+            if (tries >= 300 && placed < file.size) {
+              const spare = occupied.indexOf(false);
+              if (spare !== -1) {
+                disk[spare] = file.id;
+                occupied[spare] = true;
+                fragSlots.push(spare);
+                placed++;
+              }
+            }
+          }
+        }
+        fragmentsByFile.set(file.id, fragSlots);
+      });
+      setStatus('Disk scrambled with highly fragmented files.');
+      opIndex = 0;
+      operations = [];
+      announcedPack = false;
+      head = { from: -1, to: -1 };
+      running = false;
+      updateStats();
+      draw();
+    }
+
+    function planDefrag() {
+      operations = [];
+      announcedPack = false;
+      compactPhaseStart = 0;
+      fragmentsByFile.clear();
+      disk.forEach((id, idx) => {
+        if (!id) return;
+        if (!fragmentsByFile.has(id)) fragmentsByFile.set(id, []);
+        fragmentsByFile.get(id).push(idx);
+      });
+
+      const layout = disk.slice(); // simulated disk we mutate during planning
+      const tempZoneStart = Math.floor(CONFIG.sectors * 0.8);
+
+      // Order files numerically: F1, F2, ...
+      const orderedFiles = [...files].sort((a, b) => {
+        const na = parseInt(a.id.replace(/\D+/g, ''), 10) || 0;
+        const nb = parseInt(b.id.replace(/\D+/g, ''), 10) || 0;
+        return na - nb;
+      });
+
+      let cursor = 0;
+
+      orderedFiles.forEach(file => {
+        const positions = [];
+        layout.forEach((id, idx) => { if (id === file.id) positions.push(idx); });
+        if (!positions.length) return;
+        positions.sort((a, b) => a - b);
+
+        const targetStart = cursor;
+        const size = positions.length;
+
+        const nextFree = () => {
+          // Prefer tail free slots; never use the already-placed front region or current target window.
+          const avoidStart = targetStart;
+          const avoidEnd = targetStart + size;
+          for (let i = tempZoneStart; i < CONFIG.sectors; i++) {
+            if (i < cursor) continue;
+            if (i >= avoidStart && i < avoidEnd) continue;
+            if (layout[i] === null) return i;
+          }
+          for (let i = cursor; i < CONFIG.sectors; i++) {
+            if (i >= avoidStart && i < avoidEnd) continue;
+            if (layout[i] === null) return i;
+          }
+          return -1;
+        };
+
+        // Free the target window by pushing other files into temp slots.
+        for (let i = 0; i < size; i++) {
+          const idx = targetStart + i;
+          if (layout[idx] && layout[idx] !== file.id) {
+            const slot = nextFree();
+            if (slot === -1) continue;
+            operations.push({ from: idx, to: slot, file: layout[idx] });
+            layout[slot] = layout[idx];
+            layout[idx] = null;
+          }
+        }
+
+        // If the file is fragmented, stage its pieces into temp slots to simplify the final move.
+        const staging = [];
+        for (let i = 0; i < positions.length; i++) {
+          const slot = nextFree();
+          if (slot === -1) break;
+          staging.push(slot);
+          operations.push({ from: positions[i], to: slot, file: file.id });
+          layout[positions[i]] = null;
+          layout[slot] = file.id;
+        }
+        const sources = staging.length === positions.length ? staging : positions;
+
+        // Final placement, contiguous, respecting order.
+        for (let i = 0; i < sources.length; i++) {
+          const to = targetStart + i;
+          if (layout[to] && layout[to] !== file.id) {
+            const slot = nextFree();
+            if (slot !== -1) {
+              operations.push({ from: to, to: slot, file: layout[to] });
+              layout[slot] = layout[to];
+              layout[to] = null;
+            }
+          }
+          operations.push({ from: sources[i], to, file: file.id });
+          layout[sources[i]] = null;
+          layout[to] = file.id;
+        }
+
+        cursor += size;
+      });
+
+      compactPhaseStart = operations.length;
+
+      // Clear leftover sectors after the packed files.
+      for (let i = cursor; i < CONFIG.sectors; i++) {
+        if (layout[i] !== null) {
+          operations.push({ from: i, to: i, file: null });
+          layout[i] = null;
+        }
+      }
+
+      opIndex = 0;
+    }
+
+    function runTick() {
+      if (!running) return;
+      const tempo = parseInt(speedSlider.value, 10);
+      const interval = Math.max(14, Math.floor(380 - tempo * 3.4));
+      const opsPerTick = Math.max(1, Math.floor(tempo / 18));
+      let steps = 0;
+      while (steps < opsPerTick && opIndex < operations.length) {
+        const step = operations[opIndex];
+        head = { from: step.from, to: step.to };
+        if (step.file === null) {
+          disk[step.to] = null;
+        } else {
+          disk[step.to] = step.file;
+          if (step.from !== step.to) disk[step.from] = null;
+        }
+        opIndex++;
+        steps++;
+      }
+      if (!announcedPack && compactPhaseStart && opIndex >= compactPhaseStart) {
+        setStatus('Final pass: packing files to the front.', 'info');
+        announcedPack = true;
+      }
+      draw();
+      updateStats();
+      if (opIndex >= operations.length) {
+        running = false;
+        setStatus('Defrag complete. Disk is tidy and contiguous.', 'ok');
+        progressStat.textContent = '100%';
+        return;
+      }
+      timer = setTimeout(runTick, interval);
+    }
+
+    function startDefrag() {
+      if (running) return;
+      if (!operations.length) planDefrag();
+      running = true;
+      setStatus('Defrag in progress…', 'info');
+      runTick();
+    }
+
+    function pauseDefrag() {
+      running = false;
+      if (timer) clearTimeout(timer);
+      setStatus('Paused — resume when ready.', 'warn');
+    }
+
+    function updateStats() {
+      filesStat.textContent = files.length;
+      sectorsStat.textContent = CONFIG.sectors.toLocaleString();
+      const fragMap = new Map();
+      disk.forEach((id, idx) => {
+        if (!id) return;
+        if (!fragMap.has(id)) fragMap.set(id, []);
+        fragMap.get(id).push(idx);
+      });
+      const fragCount = Array.from(fragMap.values()).reduce((acc, arr) => {
+        if (!arr.length) return acc;
+        const sorted = arr.slice().sort((a, b) => a - b);
+        let segments = 1;
+        for (let i = 1; i < sorted.length; i++) {
+          if (sorted[i] !== sorted[i - 1] + 1) segments++;
+        }
+        return acc + segments;
+      }, 0);
+      fragmentStat.textContent = fragCount + ' segments';
+      const pct = operations.length ? Math.floor((opIndex / operations.length) * 100) : 0;
+      progressStat.textContent = pct + '%';
+    }
+
+    function draw() {
+      const dpr = window.devicePixelRatio || 1;
+      const cols = CONFIG.columns;
+      const rows = Math.ceil(CONFIG.sectors / cols);
+      const visibleWidth = canvas.clientWidth || 900;
+      const cellW = visibleWidth / cols;
+      let cellH = cellW * 0.7;
+      let height = rows * cellH;
+      const minHeight = 340;
+      if (height < minHeight) {
+        cellH = minHeight / rows;
+        height = minHeight;
+      }
+      canvas.width = visibleWidth * dpr;
+      canvas.height = height * dpr;
+      canvas.style.height = height + 'px';
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, visibleWidth, height);
+      ctx.fillStyle = '#0c1323';
+      ctx.fillRect(0, 0, visibleWidth, height);
+      const colorCache = new Map();
+      files.forEach(f => colorCache.set(f.id, f.color));
+      for (let i = 0; i < CONFIG.sectors; i++) {
+        const x = (i % cols) * cellW;
+        const y = Math.floor(i / cols) * cellH;
+        const fileId = disk[i];
+        ctx.fillStyle = fileId ? colorCache.get(fileId) || '#38bdf8' : 'rgba(255,255,255,0.04)';
+        ctx.fillRect(x + 0.6, y + 0.6, cellW - 1.2, cellH - 1.2);
+      }
+      // grid overlays
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 0.7;
+      for (let c = 0; c <= cols; c += 10) {
+        const x = c * cellW;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      // head highlight
+      if (head.from >= 0) {
+        const drawCell = (idx, color) => {
+          const x = (idx % cols) * cellW;
+          const y = Math.floor(idx / cols) * cellH;
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1.5, y + 1.5, cellW - 3, cellH - 3);
+          const fill = color.replace('1)', '0.12)').replace('0.8)', '0.12)');
+          ctx.fillStyle = fill;
+          ctx.fillRect(x + 1.5, y + 1.5, cellW - 3, cellH - 3);
+        };
+        drawCell(head.from, 'rgba(250,204,21,0.8)');
+        drawCell(head.to, 'rgba(94,234,212,0.8)');
+      }
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+    }
+
+    function setupAudio() {
+      if (audio.context) return;
+      audio.context = new (window.AudioContext || window.webkitAudioContext)();
+      const bufferSize = 2 * audio.context.sampleRate;
+      const buffer = audio.context.createBuffer(1, bufferSize, audio.context.sampleRate);
+      const data = buffer.getChannelData(0);
+      let lastOut = 0;
+      for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        data[i] = (lastOut + (0.02 * white)) / 1.02;
+        lastOut = data[i];
+        data[i] *= 3.5; // bass-leaning brown noise
+      }
+      audio.source = audio.context.createBufferSource();
+      audio.source.buffer = buffer;
+      audio.source.loop = true;
+      const biquad = audio.context.createBiquadFilter();
+      biquad.type = 'lowpass';
+      biquad.frequency.value = 320;
+      audio.gain = audio.context.createGain();
+      audio.gain.gain.value = 0.025;
+      audio.source.connect(biquad).connect(audio.gain).connect(audio.context.destination);
+      audio.source.start(0);
+      audio.enabled = true;
+      soundBtn.textContent = 'Ambient: on';
+    }
+
+    function toggleSound() {
+      if (!audio.context) {
+        setupAudio();
+        return;
+      }
+      if (audio.enabled) {
+        audio.gain.gain.linearRampToValueAtTime(0.0001, audio.context.currentTime + 0.3);
+        setTimeout(() => audio.context.suspend(), 350);
+        audio.enabled = false;
+        soundBtn.textContent = 'Ambient: off';
+      } else {
+        audio.context.resume();
+        audio.gain.gain.setValueAtTime(0.025, audio.context.currentTime + 0.05);
+        audio.enabled = true;
+        soundBtn.textContent = 'Ambient: on';
+      }
+    }
+
+    startBtn.addEventListener('click', () => {
+      if (!operations.length) planDefrag();
+      startDefrag();
+    });
+    pauseBtn.addEventListener('click', pauseDefrag);
+    scrambleBtn.addEventListener('click', () => {
+      pauseDefrag();
+      scatterDisk();
+    });
+    soundBtn.addEventListener('click', () => {
+      toggleSound();
+    });
+
+    window.addEventListener('resize', draw);
+
+    scatterDisk();
+  </script>
+</body>
+</html>
